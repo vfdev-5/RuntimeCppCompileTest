@@ -1,0 +1,6 @@
+#include "EditableFunctions.h"
+double foo(double v)
+{
+    std::cout << "Inside the test function" << std::endl;
+    return v;
+}
