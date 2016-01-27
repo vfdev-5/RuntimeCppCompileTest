@@ -12,4 +12,4 @@
 // ALL INCLUDES
 #include <iostream>
 
-double EF_EXPORT foo(double value);
+extern "C" double EF_EXPORT foo(double value);

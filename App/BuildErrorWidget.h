@@ -15,6 +15,9 @@ public:
     explicit BuildErrorWidget(QWidget *parent = 0);
     ~BuildErrorWidget();
 
+    void clean();
+    void appendText(const QString & text);
+
 private:
     Ui::BuildErrorWidget *ui;
 };
