@@ -6,36 +6,27 @@
 #   define SD_TRACE3(msg, arg1, arg2, arg3) std::cout << QString(msg).arg(arg1).arg(arg2).arg(arg3).toStdString() << std::endl;
 #   define SD_TRACE_PTR(msg, ptr) std::cout << QString(msg + QString(" : 0x%1").arg((quintptr)ptr, QT_POINTER_SIZE, 16, QChar('0'))).toStdString() << std::endl;
 
-
 // Qt
 #include <QProcess>
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
-#include <QProgressDialog>
 #include <QLibrary>
 
+
 // Project
-#include "BuildConfigDialog.h"
-#include "BuildErrorWidget.h"
-#include "CodeEditor.h"
-#include "ui_CodeEditor.h"
+#include "CodeEditorModel.h"
 
 //******************************************************************************
 
-CodeEditor::CodeEditor(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::CodeEditor),
+CodeEditorModel::CodeEditorModel(QObject *parent) :
+    QObject(parent),
     _process(new QProcess(this)),
-    _configDialog(new BuildConfigDialog()),
-    _errorWidget(new BuildErrorWidget()),
     _sourceFilePath("Resources/EditableFunction.cpp"),
     _postExecuteFunc(0),
     _libFunc(0),
     _libraryLoader(new QLibrary(this))
 {
-    ui->setupUi(this);
-
     //    QStringList environment = QProcess::systemEnvironment();
     //    SD_TRACE("System environment : ");
     //    foreach (QString var, environment)
@@ -45,36 +36,21 @@ CodeEditor::CodeEditor(QWidget *parent) :
 
 
     // Configure process:
-    connect(_process, &QProcess::started, this, &CodeEditor::onProcessStarted);
-    connect(_process, static_cast<void(QProcess::*)(QProcess::ProcessError)>(&QProcess::error), this, &CodeEditor::onProcessError);
-    connect(_process, static_cast<void(QProcess::*)(int exitCode, QProcess::ExitStatus exitStatus)>(&QProcess::finished), this, &CodeEditor::onProcessFinished);
-    connect(_process, &QProcess::stateChanged, this, &CodeEditor::onProcessStateChanged);
-    connect(_process, &QProcess::readyReadStandardError, this, &CodeEditor::onProcessReadyReadStandardError);
-    connect(_process, &QProcess::readyReadStandardOutput, this, &CodeEditor::onProcessReadyReadStandardOutput);
+    connect(_process, &QProcess::started, this, &CodeEditorModel::onProcessStarted);
+    connect(_process, static_cast<void(QProcess::*)(QProcess::ProcessError)>(&QProcess::error), this, &CodeEditorModel::onProcessError);
+    connect(_process, static_cast<void(QProcess::*)(int exitCode, QProcess::ExitStatus exitStatus)>(&QProcess::finished), this, &CodeEditorModel::onProcessFinished);
+    connect(_process, &QProcess::stateChanged, this, &CodeEditorModel::onProcessStateChanged);
+    connect(_process, &QProcess::readyReadStandardError, this, &CodeEditorModel::onProcessReadyReadStandardError);
+    connect(_process, &QProcess::readyReadStandardOutput, this, &CodeEditorModel::onProcessReadyReadStandardOutput);
 
-
-    runTestCmake();
-
-    loadAndCompute();
-
-    readSourceFile();
-
-
+    // Library can be not sync with displayed code
+    //loadAndCompute();
 
 }
 
 //******************************************************************************
 
-CodeEditor::~CodeEditor()
-{
-    delete ui;
-    delete _configDialog;
-    delete _errorWidget;
-}
-
-//******************************************************************************
-
-void CodeEditor::onProcessStarted()
+void CodeEditorModel::onProcessStarted()
 {
     SD_TRACE("Process started");
 
@@ -82,14 +58,14 @@ void CodeEditor::onProcessStarted()
 
 //******************************************************************************
 
-void CodeEditor::onProcessError(QProcess::ProcessError error)
+void CodeEditorModel::onProcessError(QProcess::ProcessError error)
 {
     switch (error)
     {
     case QProcess::FailedToStart:
         SD_TRACE("Process error : Failed to start");
         // -> program is not found => configure
-        configure();
+        emit badConfiguration();
         break;
     case QProcess::Crashed:
         SD_TRACE("Process error : Crashed");
@@ -111,7 +87,7 @@ void CodeEditor::onProcessError(QProcess::ProcessError error)
 
 //******************************************************************************
 
-void CodeEditor::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
+void CodeEditorModel::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus)
 {
     SD_TRACE1("Process finished : exitCode=%1", exitCode);
     if (exitStatus == QProcess::NormalExit)
@@ -135,6 +111,7 @@ void CodeEditor::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus
                     }
                 }
             }
+            emit workFinished(true);
             return;
         }
     }
@@ -142,13 +119,14 @@ void CodeEditor::onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus
     {
         SD_TRACE("Process finished with status = CrashExit");
     }
+    emit workFinished(false);
     SD_TRACE("Clear all tasks");
     _tasks.clear();
 }
 
 //******************************************************************************
 
-void CodeEditor::onProcessStateChanged(QProcess::ProcessState newState)
+void CodeEditorModel::onProcessStateChanged(QProcess::ProcessState newState)
 {
     switch (newState)
     {
@@ -166,40 +144,36 @@ void CodeEditor::onProcessStateChanged(QProcess::ProcessState newState)
 
 //******************************************************************************
 
-void CodeEditor::onProcessReadyReadStandardError()
+void CodeEditorModel::onProcessReadyReadStandardError()
 {
     SD_TRACE("Process ready to read std error");
 
     QString err(_process->readAllStandardError());
     SD_TRACE1("Errors : \n %1", err);
 
-    _errorWidget->appendText(err);
-
-    if (!_errorWidget->isVisible())
-        _errorWidget->show();
+    emit buildError(err);
 
 }
 
 //******************************************************************************
 
-void CodeEditor::onProcessReadyReadStandardOutput()
+void CodeEditorModel::onProcessReadyReadStandardOutput()
 {
     SD_TRACE("Process ready to read std output");
 
     QString output(_process->readAllStandardOutput());
     SD_TRACE1("Output : \n %1", output);
+
+    if (output.contains("error", Qt::CaseInsensitive))
+    {
+        emit buildError(output);
+    }
+
 }
 
 //******************************************************************************
 
-void CodeEditor::closeEvent(QCloseEvent *)
-{
-    _errorWidget->close();
-}
-
-//******************************************************************************
-
-void CodeEditor::runTestCmake()
+void CodeEditorModel::runTestCmake()
 {
     // Test CMake executable
     SD_TRACE("Start process : cmake --version");
@@ -208,45 +182,21 @@ void CodeEditor::runTestCmake()
 
 //******************************************************************************
 
-void CodeEditor::on__configure_clicked()
+void CodeEditorModel::apply(const QString &program)
 {
-    configure();
-}
-
-//******************************************************************************
-
-void CodeEditor::on__apply_clicked()
-{
-
-    if (!writeSourceFile())
+    if (!writeSourceFile(program))
     {
         return;
     }
 
-    _postExecuteFunc = &CodeEditor::loadAndCompute;
+    _postExecuteFunc = &CodeEditorModel::loadLibrary;
 
     buildSourceFile();
-
-
 }
 
 //******************************************************************************
 
-void CodeEditor::configure()
-{
-    SD_TRACE("Start build configuration dialog");
-
-    if (_configDialog->exec() != QDialog::Accepted)
-    {
-        ui->_code->setEnabled(false);
-        return;
-    }
-    runTestCmake();
-}
-
-//******************************************************************************
-
-void CodeEditor::buildSourceFile()
+void CodeEditorModel::buildSourceFile()
 {
     SD_TRACE("Build source file");
 
@@ -264,7 +214,6 @@ void CodeEditor::buildSourceFile()
         d.setPath("Build");
     }
 
-    _errorWidget->clean();
     _process->setWorkingDirectory(d.absolutePath());
     d.setPath("Resources");
 
@@ -291,27 +240,37 @@ void CodeEditor::buildSourceFile()
 
 //******************************************************************************
 
-bool CodeEditor::readSourceFile()
+QString CodeEditorModel::readSourceFile()
 {
     QFile f(_sourceFilePath);
 
     if (!f.open(QIODevice::ReadOnly))
     {
         SD_TRACE("Failed to read source file");
-        ui->_code->setEnabled(false);
-        return false;
+        return "";
     }
 
     QTextStream ts(&f);
-    ui->_code->setPlainText(ts.readAll());
+    QString program = ts.readAll();
 
     f.close();
-    return true;
+    return program;
 }
 
 //******************************************************************************
 
-bool CodeEditor::writeSourceFile()
+double CodeEditorModel::computeResult(double v)
+{
+    if (_libFunc)
+    {
+        return (*_libFunc)(v);
+    }
+    return -999999999999;
+}
+
+//******************************************************************************
+
+bool CodeEditorModel::writeSourceFile(const QString & program)
 {
 
     QFile f(_sourceFilePath);
@@ -319,12 +278,11 @@ bool CodeEditor::writeSourceFile()
     if (!f.open(QIODevice::WriteOnly))
     {
         SD_TRACE("Failed to write source file");
-        ui->_code->setEnabled(false);
         return false;
     }
 
     QTextStream ts(&f);
-    ts << ui->_code->toPlainText();
+    ts << program;
 
     f.close();
     return true;
@@ -332,7 +290,7 @@ bool CodeEditor::writeSourceFile()
 
 //******************************************************************************
 
-bool CodeEditor::loadLibrary()
+bool CodeEditorModel::loadLibrary()
 {
     SD_TRACE("Load library");
 
@@ -369,7 +327,7 @@ bool CodeEditor::loadLibrary()
 
 //******************************************************************************
 
-bool CodeEditor::unloadLibrary()
+bool CodeEditorModel::unloadLibrary()
 {
     if (_libraryLoader->isLoaded())
     {
@@ -384,19 +342,20 @@ bool CodeEditor::unloadLibrary()
 
 //******************************************************************************
 
-bool CodeEditor::loadAndCompute()
-{
-    SD_TRACE("Load and compute");
-    if (!loadLibrary()) return false;
+//bool CodeEditorModel::loadAndCompute()
+//{
+//    SD_TRACE("Load and compute");
+//    if (!loadLibrary()) return false;
 
-    double res = (*_libFunc)(10.0);
-    ui->_result->setText(QString("%1").arg(res));
-    return true;
-}
+//    double res = (*_libFunc)(10.0);
+//    ui->_result->setText(QString("%1").arg(res));
+
+//    return true;
+//}
 
 //******************************************************************************
 
-void CodeEditor::processTask()
+void CodeEditorModel::processTask()
 {
     SD_TRACE1("Process first task, remains %1", _tasks.size());
     QStringList task = _tasks.takeFirst();

@@ -1,40 +1,37 @@
-#ifndef CodeEditor_H
-#define CodeEditor_H
+#ifndef CODEEDITORMODEL_H
+#define CODEEDITORMODEL_H
 
 // Qt
-#include <QWidget>
+#include <QObject>
 #include <QProcess>
-
 
 class QLibrary;
 
 //******************************************************************************
 
-namespace Ui {
-class CodeEditor;
-}
-
-class BuildConfigDialog;
-class BuildErrorWidget;
-
-class CodeEditor : public QWidget
+class CodeEditorModel : public QObject
 {
     Q_OBJECT
-
 public:
-    explicit CodeEditor(QWidget *parent = 0);
-    ~CodeEditor();
+    explicit CodeEditorModel(QObject *parent = 0);
 
     void setCMakePath(const QString & path)
     { _cmakePath = path; }
 
+    void runTestCmake();
+    void apply(const QString & program);
+    QString readSourceFile();
 
-public slots:
-    void on__configure_clicked();
-    void on__apply_clicked();
+    double computeResult(double v);
+
+signals:
+    void badConfiguration();
+    void workFinished(bool ok);
+    void buildError(QString);
+
+
 
 protected slots:
-
     void onProcessStarted();
     void onProcessError(QProcess::ProcessError error);
     void onProcessFinished(int exitCode, QProcess::ExitStatus exitStatus);
@@ -42,49 +39,30 @@ protected slots:
     void onProcessReadyReadStandardError();
     void onProcessReadyReadStandardOutput();
 
-protected:
-    virtual void closeEvent(QCloseEvent *);
-
-
 private:
-
-    void runTestCmake();
-
-    void configure();
-
     void buildSourceFile();
 
-    bool readSourceFile();
-    bool writeSourceFile();
+    bool writeSourceFile(const QString & program);
 
     bool loadLibrary();
     bool unloadLibrary();
 
-    bool loadAndCompute();
-
+//    bool loadAndCompute();
 
     void processTask();
 
     QString _cmakePath;
     QString _cmakeGenerator;
     QString _cmakelistsPath;
-
     QString _sourceFilePath;
-
-    Ui::CodeEditor *ui;
-
-    BuildConfigDialog * _configDialog;
-    BuildErrorWidget * _errorWidget;
     QProcess * _process;
-
     QList<QStringList> _tasks;
     QLibrary * _libraryLoader;
 
-    bool (CodeEditor::*_postExecuteFunc)();
+    bool (CodeEditorModel::*_postExecuteFunc)();
     double (*_libFunc)(double);
-
 };
 
 //******************************************************************************
 
-#endif // CodeEditor_H
+#endif // CODEEDITORMODEL_H

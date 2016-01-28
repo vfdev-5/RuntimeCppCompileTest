@@ -5,13 +5,13 @@ QString CMAKE_PATH = "C:\\Program Files (x86)\\CMake\\bin\\cmake.exe";
 QString PROGRAM_PATH = "C:\\VFomin_folder\\PISE_project\\MyExamples\\RuntimeCppComplie_test\\RuntimeCppComplie_test\\Resources";
 
 // Project
-#include "CodeEditor.h"
+#include "CodeEditorWidget.h"
 
 int main(int argc, char** argv)
 {
     QApplication a(argc, argv);
 
-    CodeEditor widget;
+    CodeEditorWidget widget;
     widget.show();
 
 //    std::cout << "HELLO" << std::endl;
