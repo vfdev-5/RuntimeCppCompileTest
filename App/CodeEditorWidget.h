@@ -13,6 +13,7 @@ class CodeEditorWidget;
 class BuildConfigDialog;
 class BuildErrorWidget;
 class CodeEditorModel;
+class Highlighter;
 
 class CodeEditorWidget : public QWidget
 {
@@ -37,12 +38,16 @@ protected slots:
 
 private:
 
+    void setupEditor();
+
     void setUiEnabled(bool v);    
     void configure();
 
     Ui::CodeEditorWidget *ui;
     BuildConfigDialog * _configDialog;
     BuildErrorWidget * _errorWidget;
+
+    Highlighter * _highlighter;
 
     CodeEditorModel * _model;
 

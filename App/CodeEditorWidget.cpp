@@ -7,9 +7,10 @@
 #   define SD_TRACE_PTR(msg, ptr) std::cout << QString(msg + QString(" : 0x%1").arg((quintptr)ptr, QT_POINTER_SIZE, 16, QChar('0'))).toStdString() << std::endl;
 
 // Qt
-//#include <QProgressDialog>
+#include <QFont>
 
 // Project
+#include "Highlighter.h"
 #include "CodeEditorModel.h"
 #include "BuildConfigDialog.h"
 #include "BuildErrorWidget.h"
@@ -26,6 +27,8 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) :
     _model(new CodeEditorModel(this))
 {
     ui->setupUi(this);
+
+    setupEditor();
 
     // connect to model:
     connect(_model, &CodeEditorModel::badConfiguration, this, &CodeEditorWidget::onBadConfiguration);
@@ -81,6 +84,20 @@ void CodeEditorWidget::onBuildError(const QString & err)
     _errorWidget->appendText(err);
     if (!_errorWidget->isVisible())
         _errorWidget->show();
+}
+
+//******************************************************************************
+
+void CodeEditorWidget::setupEditor()
+{
+    QFont font;
+    font.setFamily("Courier");
+    font.setFixedPitch(true);
+    font.setPointSize(10);
+
+    ui->_code->setFont(font);
+
+    _highlighter = new Highlighter(ui->_code->document());
 }
 
 //******************************************************************************
