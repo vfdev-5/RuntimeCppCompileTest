@@ -91,9 +91,9 @@ void CodeEditorWidget::onBuildError(const QString & err)
 void CodeEditorWidget::setupEditor()
 {
     QFont font;
-    font.setFamily("Courier");
+    font.setFamily("Monospace");
     font.setFixedPitch(true);
-    font.setPointSize(10);
+    font.setPointSize(11);
 
     ui->_code->setFont(font);
 

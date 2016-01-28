@@ -9,6 +9,16 @@ Highlighter::Highlighter(QTextDocument *parent)
 {
     HighlightingRule rule;
 
+
+    macrosFormat.setForeground(Qt::darkBlue);
+    QStringList macrosPatterns;
+    macrosPatterns << "#\\s+\\w+" << "#\\w+";
+    foreach (const QString &pattern, macrosPatterns) {
+        rule.pattern = QRegExp(pattern);
+        rule.format = macrosFormat;
+        highlightingRules.append(rule);
+    }
+
     keywordFormat.setForeground(Qt::darkBlue);
     keywordFormat.setFontWeight(QFont::Bold);
     QStringList keywordPatterns;
@@ -21,7 +31,10 @@ Highlighter::Highlighter(QTextDocument *parent)
                     << "\\bslots\\b" << "\\bstatic\\b" << "\\bstruct\\b"
                     << "\\btemplate\\b" << "\\btypedef\\b" << "\\btypename\\b"
                     << "\\bunion\\b" << "\\bunsigned\\b" << "\\bvirtual\\b"
-                    << "\\bvoid\\b" << "\\bvolatile\\b";
+                    << "\\bif\\b" << "\\bfor\\b" << "\\belse\\b"
+                    << "\\bwhile\\b" << "\\bswitch\\b" << "\\btry\\b"
+                    << "\\bcatch\\b" << "\\w+_cast" << "\\bemit\\b"
+                    << "\\bvoid\\b" << "\\bvolatile\\b" << "\\breturn\\b";
     foreach (const QString &pattern, keywordPatterns) {
         rule.pattern = QRegExp(pattern);
         rule.format = keywordFormat;
@@ -34,17 +47,12 @@ Highlighter::Highlighter(QTextDocument *parent)
     rule.format = classFormat;
     highlightingRules.append(rule);
 
-    singleLineCommentFormat.setForeground(Qt::red);
+    singleLineCommentFormat.setForeground(Qt::darkGreen);
     rule.pattern = QRegExp("//[^\n]*");
     rule.format = singleLineCommentFormat;
     highlightingRules.append(rule);
 
-    multiLineCommentFormat.setForeground(Qt::red);
-
-    quotationFormat.setForeground(Qt::darkGreen);
-    rule.pattern = QRegExp("\".*\"");
-    rule.format = quotationFormat;
-    highlightingRules.append(rule);
+    multiLineCommentFormat.setForeground(Qt::darkGreen);
 
     functionFormat.setFontItalic(true);
     functionFormat.setForeground(Qt::blue);
@@ -52,8 +60,24 @@ Highlighter::Highlighter(QTextDocument *parent)
     rule.format = functionFormat;
     highlightingRules.append(rule);
 
+    instanceFormat.setForeground(Qt::darkRed);
+    rule.pattern = QRegExp("\\b[A-Za-z0-9_]+(?=\\.)");
+    rule.format = instanceFormat;
+    highlightingRules.append(rule);
+
+
+    namespaceFormat.setForeground(Qt::darkBlue);
+    rule.pattern = QRegExp("\\w+(?=::)");
+    rule.format = namespaceFormat;
+    highlightingRules.append(rule);
+
     commentStartExpression = QRegExp("/\\*");
     commentEndExpression = QRegExp("\\*/");
+
+    quotationFormat.setForeground(Qt::darkGreen);
+    rule.pattern = QRegExp("(\".*\"|\'.*\')");
+    rule.format = quotationFormat;
+    highlightingRules.append(rule);
 }
 
 //******************************************************************************
