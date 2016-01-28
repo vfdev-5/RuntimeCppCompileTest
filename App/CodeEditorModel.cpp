@@ -4,6 +4,7 @@
 #   define SD_TRACE1(msg, arg1) std::cout << QString(msg).arg(arg1).toStdString() << std::endl;
 #   define SD_TRACE2(msg, arg1, arg2) std::cout << QString(msg).arg(arg1).arg(arg2).toStdString() << std::endl;
 #   define SD_TRACE3(msg, arg1, arg2, arg3) std::cout << QString(msg).arg(arg1).arg(arg2).arg(arg3).toStdString() << std::endl;
+#   define SD_TRACE4(msg, arg1, arg2, arg3, arg4) std::cout << QString(msg).arg(arg1).arg(arg2).arg(arg3).arg(arg4).toStdString() << std::endl;
 #   define SD_TRACE_PTR(msg, ptr) std::cout << QString(msg + QString(" : 0x%1").arg((quintptr)ptr, QT_POINTER_SIZE, 16, QChar('0'))).toStdString() << std::endl;
 
 // Qt
@@ -31,12 +32,16 @@ CodeEditorModel::CodeEditorModel(QObject *parent) :
     _libraryLoader(new QLibrary(this))
 {
 
+    displayEnv();
+
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
 //    QString path = env.contains("PATH") ? env.value("PATH") : env.value("Path");
 //    env.clear();
 //    env.insert("PATH", path);
 //    env.insert("Path", path);
     _process->setProcessEnvironment(env);
+
+    displayEnv();
 
     // Configure process:
     connect(_process, &QProcess::started, this, &CodeEditorModel::onProcessStarted);
@@ -56,7 +61,7 @@ QString CodeEditorModel::getPATH() const
 //    displayEnv();
     QProcessEnvironment env = _process->processEnvironment();
     QStringList keys;
-    keys << "PATH" << "Path";
+    keys << "PATH";
     foreach (QString key, keys)
     {
         if (env.contains(key)) return env.value(key).replace("\\\\", "\\");
@@ -72,15 +77,15 @@ void CodeEditorModel::setPATH(const QString &path)
     p.replace(QString("\\"), QString("\\\\"));
     QProcessEnvironment env = _process->processEnvironment();
     QStringList keys;
-    keys << "PATH" << "Path";
+    keys << "PATH";
     foreach (QString key, keys)
     {
         env.insert(key, p);
     }
     _process->setProcessEnvironment(env);
 
-//    SD_TRACE("CodeEditorModel SET PATH");
-//    displayEnv();
+    SD_TRACE("CodeEditorModel SET PATH");
+    displayEnv();
 
 }
 
@@ -119,6 +124,8 @@ void CodeEditorModel::onProcessError(QProcess::ProcessError error)
         SD_TRACE("Process error : Unknown");
     }
 
+    SD_TRACE1("Tasks : %1", _tasks.size());
+
 }
 
 //******************************************************************************
@@ -146,8 +153,8 @@ void CodeEditorModel::onProcessFinished(int exitCode, QProcess::ExitStatus exitS
                         SD_TRACE("Post execute function is failed");
                     }
                 }
+                emit workFinished(true);
             }
-            emit workFinished(true);
             return;
         }
     }
@@ -220,8 +227,8 @@ void CodeEditorModel::onProcessReadyReadStandardOutput()
 
 void CodeEditorModel::runTestCmake()
 {
-    SD_TRACE("Start process : cmake --version");
     _tasks.append(QStringList() << _cmakePath << "--version");
+    SD_TRACE1("Start process : %1 --version", _cmakePath);
     processTask();
 }
 
@@ -263,7 +270,6 @@ void CodeEditorModel::buildSourceFile()
     d.setPath("Resources");
 
     // Configure
-    SD_TRACE("1) Start process : cmake configure and generate project ");
     QStringList task;
     task << _cmakePath
          << "-DCMAKE_BUILD_TYPE=Release"
@@ -275,10 +281,10 @@ void CodeEditorModel::buildSourceFile()
 #endif
     task << d.absolutePath();
     _tasks.append(task);
+    SD_TRACE4("Append task : %1 %2 %3 %4", task[0], task[1], task[2], task[3]);
 
 
     // Build
-    SD_TRACE("2) Start process : cmake --build");
     _tasks.append(QStringList() << _cmakePath
                   << "--build"
                   << "."
@@ -287,7 +293,8 @@ void CodeEditorModel::buildSourceFile()
                   << "--config"
                   << "Release");
 
-
+    task = _tasks.last();
+    SD_TRACE4("Append task : %1 %2 %3 %4", task[0], task[1], task[2], task[3]);
     processTask();
 }
 

@@ -65,7 +65,6 @@ private:
 
     QString _cmakePath;
     QString _cmakeGenerator;
-    QString _cmakelistsPath;
     QString _sourceFilePath;
     QProcess * _process;
     QList<QStringList> _tasks;

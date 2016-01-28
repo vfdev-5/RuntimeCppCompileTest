@@ -39,9 +39,11 @@ protected slots:
 private:
 
     void setupEditor();
-
     void setUiEnabled(bool v);    
     void configure();
+
+    void getConfigFromSettings();
+    void setConfigToSettings();
 
     Ui::CodeEditorWidget *ui;
     BuildConfigDialog * _configDialog;

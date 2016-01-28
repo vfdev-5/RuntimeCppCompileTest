@@ -8,6 +8,7 @@
 
 // Qt
 #include <QFont>
+#include <QSettings>
 
 // Project
 #include "Highlighter.h"
@@ -34,6 +35,9 @@ CodeEditorWidget::CodeEditorWidget(QWidget *parent) :
     connect(_model, &CodeEditorModel::badConfiguration, this, &CodeEditorWidget::onBadConfiguration);
     connect(_model, &CodeEditorModel::workFinished, this, &CodeEditorWidget::onWorkFinished);
     connect(_model, &CodeEditorModel::buildError, this, &CodeEditorWidget::onBuildError);
+
+    // Configure the model:
+    getConfigFromSettings();
 
     QString program = _model->readSourceFile();
     if (!program.isEmpty())
@@ -157,17 +161,63 @@ void CodeEditorWidget::configure()
 
     if (_configDialog->exec() == QDialog::Accepted)
     {
+        if (_model->getGenerator() != _configDialog->getGenerator())
+        {
+            if (!_model->removeBuildCache())
+            {
+                SD_TRACE("Failed to remove build cache. Please, remove manually the folder 'Build' at '<INSTALLATION_FOLDER>/Resources/Build'");
+                return;
+            }
+        }
+
         _model->setCMakePath(_configDialog->getCMakePath());
         _model->setPATH(_configDialog->getPATH());
         _model->setGenerator(_configDialog->getGenerator());
-        if (_model->removeBuildCache())
-        {
-            _model->runTestCmake();
-        }
+        setConfigToSettings();
+        _model->runTestCmake();
     }
     SD_TRACE1("CMake path : %1", _model->getCMakePath());
     SD_TRACE1("CMake generator : %1", _model->getGenerator());
     SD_TRACE1("PATH : %1", _model->getPATH());
+}
+
+//******************************************************************************
+
+void CodeEditorWidget::getConfigFromSettings()
+{
+    // Restore settings:
+    QSettings settings("RCCTEST_dot_com", "RCCTEST");
+    if (settings.contains("CodeEditorModel/CMakePath"))
+    {
+        _model->setCMakePath(settings.value("CodeEditorModel/CMakePath").toString());
+    }
+    if (settings.contains("CodeEditorModel/PATH"))
+    {
+        _model->setPATH(settings.value("CodeEditorModel/PATH").toString());
+    }
+
+#if (defined WIN32 || defined _WIN32 || defined WINCE)
+    // Restore the generator
+    if (settings.contains("CodeEditorModel/CMakeGenerator"))
+    {
+        _model->setGenerator(settings.value("CodeEditorModel/CMakeGenerator").toString());
+    }
+    else
+    {
+        SD_TRACE("WIN32 : GENERATOR IS EMTPY");
+        configure();
+    }
+#endif
+}
+
+//******************************************************************************
+
+void CodeEditorWidget::setConfigToSettings()
+{
+    QSettings settings("RCCTEST_dot_com", "RCCTEST");
+    settings.setValue("CodeEditorModel/CMakePath", _model->getCMakePath());
+    settings.setValue("CodeEditorModel/PATH", _model->getPATH());
+    settings.setValue("CodeEditorModel/CMakeGenerator", _model->getGenerator());
 }
 
 //******************************************************************************
