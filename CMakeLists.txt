@@ -1,6 +1,6 @@
 ## Project RuntimeCppCompileTest
 project( RuntimeCppCompileTest )
-cmake_minimum_required( VERSION 3.0.0 FATAL_ERROR)
+cmake_minimum_required( VERSION 3.1.0 FATAL_ERROR)
 
 
 # Add custom Cmake Modules
@@ -31,9 +31,6 @@ include(Qt)
 file(GLOB_RECURSE SRC_FILES "App/*.cpp")
 file(GLOB_RECURSE INC_FILES "App/*.h")
 file(GLOB_RECURSE UI_FILES "App/*.ui")
-
-# add ui_<source>.h
-INCLUDE_DIRECTORIES(${CMAKE_BINARY_DIR})
 
 ## create application
 add_executable( ${PROJECT_NAME} ${SRC_FILES} ${INC_FILES} ${UI_FILES})

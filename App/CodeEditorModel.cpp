@@ -7,10 +7,12 @@
 #   define SD_TRACE_PTR(msg, ptr) std::cout << QString(msg + QString(" : 0x%1").arg((quintptr)ptr, QT_POINTER_SIZE, 16, QChar('0'))).toStdString() << std::endl;
 
 // Qt
+#include <qglobal.h>
 #include <QProcess>
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
+#include <QSysInfo>
 #include <QLibrary>
 
 
@@ -23,17 +25,18 @@ CodeEditorModel::CodeEditorModel(QObject *parent) :
     QObject(parent),
     _process(new QProcess(this)),
     _sourceFilePath("Resources/EditableFunction.cpp"),
+    _cmakePath("cmake"),
     _postExecuteFunc(0),
     _libFunc(0),
     _libraryLoader(new QLibrary(this))
 {
-    //    QStringList environment = QProcess::systemEnvironment();
-    //    SD_TRACE("System environment : ");
-    //    foreach (QString var, environment)
-    //    {
-    //        SD_TRACE(var);
-    //    }
 
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+//    QString path = env.contains("PATH") ? env.value("PATH") : env.value("Path");
+//    env.clear();
+//    env.insert("PATH", path);
+//    env.insert("Path", path);
+    _process->setProcessEnvironment(env);
 
     // Configure process:
     connect(_process, &QProcess::started, this, &CodeEditorModel::onProcessStarted);
@@ -43,8 +46,41 @@ CodeEditorModel::CodeEditorModel(QObject *parent) :
     connect(_process, &QProcess::readyReadStandardError, this, &CodeEditorModel::onProcessReadyReadStandardError);
     connect(_process, &QProcess::readyReadStandardOutput, this, &CodeEditorModel::onProcessReadyReadStandardOutput);
 
-    // Library can be not sync with displayed code
-    //loadAndCompute();
+}
+
+//******************************************************************************
+
+QString CodeEditorModel::getPATH() const
+{
+//    SD_TRACE("CodeEditorModel GET PATH");
+//    displayEnv();
+    QProcessEnvironment env = _process->processEnvironment();
+    QStringList keys;
+    keys << "PATH" << "Path";
+    foreach (QString key, keys)
+    {
+        if (env.contains(key)) return env.value(key).replace("\\\\", "\\");
+    }
+    return QString();
+}
+
+//******************************************************************************
+
+void CodeEditorModel::setPATH(const QString &path)
+{
+    QString p(path);
+    p.replace(QString("\\"), QString("\\\\"));
+    QProcessEnvironment env = _process->processEnvironment();
+    QStringList keys;
+    keys << "PATH" << "Path";
+    foreach (QString key, keys)
+    {
+        env.insert(key, p);
+    }
+    _process->setProcessEnvironment(env);
+
+//    SD_TRACE("CodeEditorModel SET PATH");
+//    displayEnv();
 
 }
 
@@ -166,7 +202,16 @@ void CodeEditorModel::onProcessReadyReadStandardOutput()
 
     if (output.contains("error", Qt::CaseInsensitive))
     {
+#if (defined WIN32 || defined _WIN32 || defined WINCE)
+        if (!output.contains(
+                    QRegExp("(/errorReport:queue|%errorlevel%|:cmErrorLevel)",
+                            Qt::CaseInsensitive)))
+        {
+            emit buildError(output);
+        }
+#else
         emit buildError(output);
+#endif
     }
 
 }
@@ -175,9 +220,9 @@ void CodeEditorModel::onProcessReadyReadStandardOutput()
 
 void CodeEditorModel::runTestCmake()
 {
-    // Test CMake executable
     SD_TRACE("Start process : cmake --version");
-    _process->start("cmake", QStringList() << "--version");
+    _tasks.append(QStringList() << _cmakePath << "--version");
+    processTask();
 }
 
 //******************************************************************************
@@ -219,14 +264,22 @@ void CodeEditorModel::buildSourceFile()
 
     // Configure
     SD_TRACE("1) Start process : cmake configure and generate project ");
-    _tasks.append(QStringList() << "cmake"
-                  << "-DCMAKE_BUILD_TYPE=Release"
-                  << "-DCMAKE_INSTALL_PREFIX=../../"
-                  << d.absolutePath());
+    QStringList task;
+    task << _cmakePath
+         << "-DCMAKE_BUILD_TYPE=Release"
+         << "-DCMAKE_INSTALL_PREFIX=../../";
+#if (defined WIN32 || defined _WIN32 || defined WINCE)
+        // Force generator choice
+        SD_TRACE1("Cmake generator : %1", _cmakeGenerator);
+        task << "-G" + _cmakeGenerator;
+#endif
+    task << d.absolutePath();
+    _tasks.append(task);
+
 
     // Build
     SD_TRACE("2) Start process : cmake --build");
-    _tasks.append(QStringList() << "cmake"
+    _tasks.append(QStringList() << _cmakePath
                   << "--build"
                   << "."
                   << "--target"
@@ -270,6 +323,24 @@ double CodeEditorModel::computeResult(double v)
 
 //******************************************************************************
 
+bool CodeEditorModel::removeBuildCache()
+{
+    QDir d("Resources/Build");
+    if (!d.exists())
+    {
+        return true;
+    }
+
+    if (!d.removeRecursively())
+    {
+        SD_TRACE("Failed to remove 'Resources/Build' folder");
+        return false;
+    }
+    return true;
+}
+
+//******************************************************************************
+
 bool CodeEditorModel::writeSourceFile(const QString & program)
 {
 
@@ -298,6 +369,7 @@ bool CodeEditorModel::loadLibrary()
 
     QStringList names;
     names << "EditableFunction";
+    names << "EditableFunction.dll";
 
     QDir d(".");
     SD_TRACE1("Working path : %1", d.absolutePath());
@@ -342,16 +414,14 @@ bool CodeEditorModel::unloadLibrary()
 
 //******************************************************************************
 
-//bool CodeEditorModel::loadAndCompute()
-//{
-//    SD_TRACE("Load and compute");
-//    if (!loadLibrary()) return false;
-
-//    double res = (*_libFunc)(10.0);
-//    ui->_result->setText(QString("%1").arg(res));
-
-//    return true;
-//}
+void CodeEditorModel::displayEnv() const
+{
+    SD_TRACE("Process env : ");
+    foreach(QString v, _process->processEnvironment().toStringList())
+    {
+        SD_TRACE(v);
+    }
+}
 
 //******************************************************************************
 

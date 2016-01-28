@@ -67,6 +67,7 @@ void CodeEditorWidget::closeEvent(QCloseEvent *)
 
 void CodeEditorWidget::onBadConfiguration()
 {
+    setUiEnabled(true);
     configure();
 }
 
@@ -150,13 +151,23 @@ void CodeEditorWidget::configure()
 {
     SD_TRACE("Start build configuration dialog");
 
-    if (_configDialog->exec() != QDialog::Accepted)
+    _configDialog->setCMakePath(_model->getCMakePath());
+    _configDialog->setPATH(_model->getPATH());
+    _configDialog->setGenerator(_model->getGenerator());
+
+    if (_configDialog->exec() == QDialog::Accepted)
     {
-        ui->_apply->setEnabled(false);
-        ui->_code->setEnabled(false);
-        return;
+        _model->setCMakePath(_configDialog->getCMakePath());
+        _model->setPATH(_configDialog->getPATH());
+        _model->setGenerator(_configDialog->getGenerator());
+        if (_model->removeBuildCache())
+        {
+            _model->runTestCmake();
+        }
     }
-    _model->runTestCmake();
+    SD_TRACE1("CMake path : %1", _model->getCMakePath());
+    SD_TRACE1("CMake generator : %1", _model->getGenerator());
+    SD_TRACE1("PATH : %1", _model->getPATH());
 }
 
 //******************************************************************************
