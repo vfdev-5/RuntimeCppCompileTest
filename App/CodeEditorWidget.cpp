@@ -174,11 +174,14 @@ void CodeEditorWidget::configure()
         _model->setPATH(_configDialog->getPATH());
         _model->setGenerator(_configDialog->getGenerator());
         setConfigToSettings();
+
+        SD_TRACE1("CMake path : %1", _model->getCMakePath());
+        SD_TRACE1("CMake generator : %1", _model->getGenerator());
+        SD_TRACE1("PATH : %1", _model->getPATH());
+
+        // Check in any case
         _model->runTestCmake();
     }
-    SD_TRACE1("CMake path : %1", _model->getCMakePath());
-    SD_TRACE1("CMake generator : %1", _model->getGenerator());
-    SD_TRACE1("PATH : %1", _model->getPATH());
 }
 
 //******************************************************************************

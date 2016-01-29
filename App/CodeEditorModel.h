@@ -15,10 +15,9 @@ class CodeEditorModel : public QObject
 public:
     explicit CodeEditorModel(QObject *parent = 0);
 
-    QString getCMakePath() const
-    { return _cmakePath; }
-    void setCMakePath(const QString & path)
-    { _cmakePath = path; }
+    QString getCMakePath() const;
+
+    void setCMakePath(const QString & path);
 
     QString getGenerator() const
     { return _cmakeGenerator; }

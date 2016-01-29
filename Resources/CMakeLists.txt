@@ -1,14 +1,6 @@
 project( EditableFunction )
 cmake_minimum_required( VERSION 3.1.0 FATAL_ERROR)
 
-# Does not work
-#if(ARCH AND WIN32)
-#    message( STATUS "On Windows : ARCH=${ARCH}")
-#    message( STATUS "CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
-#    SET(CMAKE_GENERATOR "${CMAKE_GENERATOR} Win64")
-#    message( STATUS "NEW CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
-#endif()
-
 
 add_definitions("-DEF_EXPORT_DEF")
 

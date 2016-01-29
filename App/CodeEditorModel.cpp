@@ -4,7 +4,6 @@
 #   define SD_TRACE1(msg, arg1) std::cout << QString(msg).arg(arg1).toStdString() << std::endl;
 #   define SD_TRACE2(msg, arg1, arg2) std::cout << QString(msg).arg(arg1).arg(arg2).toStdString() << std::endl;
 #   define SD_TRACE3(msg, arg1, arg2, arg3) std::cout << QString(msg).arg(arg1).arg(arg2).arg(arg3).toStdString() << std::endl;
-#   define SD_TRACE4(msg, arg1, arg2, arg3, arg4) std::cout << QString(msg).arg(arg1).arg(arg2).arg(arg3).arg(arg4).toStdString() << std::endl;
 #   define SD_TRACE_PTR(msg, ptr) std::cout << QString(msg + QString(" : 0x%1").arg((quintptr)ptr, QT_POINTER_SIZE, 16, QChar('0'))).toStdString() << std::endl;
 
 // Qt
@@ -15,7 +14,8 @@
 #include <QDir>
 #include <QSysInfo>
 #include <QLibrary>
-
+#include <QCoreApplication>
+#include <QTime>
 
 // Project
 #include "CodeEditorModel.h"
@@ -32,16 +32,8 @@ CodeEditorModel::CodeEditorModel(QObject *parent) :
     _libraryLoader(new QLibrary(this))
 {
 
-    displayEnv();
-
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-//    QString path = env.contains("PATH") ? env.value("PATH") : env.value("Path");
-//    env.clear();
-//    env.insert("PATH", path);
-//    env.insert("Path", path);
     _process->setProcessEnvironment(env);
-
-    displayEnv();
 
     // Configure process:
     connect(_process, &QProcess::started, this, &CodeEditorModel::onProcessStarted);
@@ -51,6 +43,22 @@ CodeEditorModel::CodeEditorModel(QObject *parent) :
     connect(_process, &QProcess::readyReadStandardError, this, &CodeEditorModel::onProcessReadyReadStandardError);
     connect(_process, &QProcess::readyReadStandardOutput, this, &CodeEditorModel::onProcessReadyReadStandardOutput);
 
+}
+
+//******************************************************************************
+
+QString CodeEditorModel::getCMakePath() const
+{
+    QString out(_cmakePath);
+    return out.replace(QString("\\\\"), QString("\\"));
+}
+
+//******************************************************************************
+
+void CodeEditorModel::setCMakePath(const QString &path)
+{
+    _cmakePath = path;
+    _cmakePath.replace(QString("\\"), QString("\\\\"));
 }
 
 //******************************************************************************
@@ -84,9 +92,6 @@ void CodeEditorModel::setPATH(const QString &path)
     }
     _process->setProcessEnvironment(env);
 
-    SD_TRACE("CodeEditorModel SET PATH");
-    displayEnv();
-
 }
 
 //******************************************************************************
@@ -94,7 +99,6 @@ void CodeEditorModel::setPATH(const QString &path)
 void CodeEditorModel::onProcessStarted()
 {
     SD_TRACE("Process started");
-
 }
 
 //******************************************************************************
@@ -106,8 +110,13 @@ void CodeEditorModel::onProcessError(QProcess::ProcessError error)
     case QProcess::FailedToStart:
         SD_TRACE("Process error : Failed to start");
         // -> program is not found => configure
+
+        SD_TRACE("Clear all tasks");
+        _tasks.clear();
+
         emit badConfiguration();
         break;
+
     case QProcess::Crashed:
         SD_TRACE("Process error : Crashed");
         break;
@@ -124,7 +133,6 @@ void CodeEditorModel::onProcessError(QProcess::ProcessError error)
         SD_TRACE("Process error : Unknown");
     }
 
-    SD_TRACE1("Tasks : %1", _tasks.size());
 
 }
 
@@ -228,7 +236,7 @@ void CodeEditorModel::onProcessReadyReadStandardOutput()
 void CodeEditorModel::runTestCmake()
 {
     _tasks.append(QStringList() << _cmakePath << "--version");
-    SD_TRACE1("Start process : %1 --version", _cmakePath);
+    SD_TRACE1("Append taks : %1 --version", _cmakePath);
     processTask();
 }
 
@@ -263,7 +271,7 @@ void CodeEditorModel::buildSourceFile()
             SD_TRACE("Failed to create 'Resources/Build' folder");
             return;
         }
-        d.setPath("Build");
+        d.setPath("Resources/Build");
     }
 
     _process->setWorkingDirectory(d.absolutePath());
@@ -281,7 +289,7 @@ void CodeEditorModel::buildSourceFile()
 #endif
     task << d.absolutePath();
     _tasks.append(task);
-    SD_TRACE4("Append task : %1 %2 %3 %4", task[0], task[1], task[2], task[3]);
+    SD_TRACE3("Append task : %1 %2 %3", task[0] + " " + task[1], task[2] + " " + task[3], task[4]);
 
 
     // Build
@@ -294,7 +302,7 @@ void CodeEditorModel::buildSourceFile()
                   << "Release");
 
     task = _tasks.last();
-    SD_TRACE4("Append task : %1 %2 %3 %4", task[0], task[1], task[2], task[3]);
+    SD_TRACE3("Append task : %1 %2 %3", task[0] + " " + task[1], task[2], task[3]);
     processTask();
 }
 
@@ -332,6 +340,7 @@ double CodeEditorModel::computeResult(double v)
 
 bool CodeEditorModel::removeBuildCache()
 {
+    SD_TRACE("(!) Remove build cache");
     QDir d("Resources/Build");
     if (!d.exists())
     {
@@ -343,6 +352,9 @@ bool CodeEditorModel::removeBuildCache()
         SD_TRACE("Failed to remove 'Resources/Build' folder");
         return false;
     }
+
+    _process->setWorkingDirectory("");
+
     return true;
 }
 
@@ -432,10 +444,20 @@ void CodeEditorModel::displayEnv() const
 
 //******************************************************************************
 
+QString StringListToString(const QStringList & list)
+{
+    QString out;
+    foreach (QString i, list)
+    {
+        out.append(i + " ");
+    }
+    return out;
+}
+
 void CodeEditorModel::processTask()
 {
-    SD_TRACE1("Process first task, remains %1", _tasks.size());
     QStringList task = _tasks.takeFirst();
+    SD_TRACE2("Process task: %1 | taskCount=%2", StringListToString(task), _tasks.size());
     _process->start(task.takeFirst(), task);
 }
 
