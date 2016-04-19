@@ -15,7 +15,6 @@
 #include <QSysInfo>
 #include <QLibrary>
 #include <QCoreApplication>
-#include <QTime>
 
 // Project
 #include "CodeEditorModel.h"
@@ -284,7 +283,6 @@ void CodeEditorModel::buildSourceFile()
          << "-DCMAKE_INSTALL_PREFIX=../../";
 #if (defined WIN32 || defined _WIN32 || defined WINCE)
         // Force generator choice
-        SD_TRACE1("Cmake generator : %1", _cmakeGenerator);
         task << "-G" + _cmakeGenerator;
 #endif
     task << d.absolutePath();

@@ -109,6 +109,7 @@ void BuildConfigDialog::on__buttons_accepted()
     accept();
 }
 
+//******************************************************************************
 void BuildConfigDialog::on__vsversion_valueChanged(int i)
 {
     ui->_vsyear->setText(QString("%1").arg(versionyears.value(i, " ")));
